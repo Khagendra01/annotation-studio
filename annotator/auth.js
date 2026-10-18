@@ -23,8 +23,14 @@ window.AuthGate = (() => {
   const ready = new Promise(resolve => { resolveReady = resolve; });
 
   // Configured installs block the app before first paint; the CDN load follows.
+  // A stored session starts in splash mode so a reload never flashes the form.
   if (configured) {
-    showGate('Connecting…');
+    const stored = (() => {
+      try { return Object.keys(localStorage).some(key => /^sb-.+-auth-token$/.test(key)); }
+      catch (error) { return false; }
+    })();
+    if (stored) showSplash('Restoring your session…');
+    else showGate('Connecting…');
     if (cfg.allowSignup === false) { const s = $('#auth-signup'); if (s) s.hidden = true; }
   }
 
@@ -74,10 +80,21 @@ window.AuthGate = (() => {
     setError('');
     setNote(message || NOTE_DEFAULT);
     setMode('signin');
+    const form = $('#auth-form');
+    if (form) form.hidden = false;
     const gate = $('#auth-gate');
     if (gate) gate.hidden = false;
     const email = $('#auth-email');
     if (email && !message) email.focus();
+  }
+  function showSplash(message) {
+    setError('');
+    const gate = $('#auth-gate');
+    if (gate) gate.hidden = false;
+    const form = $('#auth-form');
+    if (form) form.hidden = true;
+    const title = $('#auth-title');
+    if (title) title.textContent = message;
   }
   function hideGate() {
     const gate = $('#auth-gate');

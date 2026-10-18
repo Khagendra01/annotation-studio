@@ -1138,17 +1138,17 @@ $('#btn-apply-settings').onclick = async () => {
 
 /* ============================ modals plumbing ============================ */
 $$('[data-close]').forEach(b => b.onclick = () => b.closest('.overlay').hidden = true);
-$$('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.hidden = true; }));
+$$('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o && o.id !== 'auth-gate') o.hidden = true; }));
 $$('.modal').forEach(modal => {
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   const heading = modal.querySelector('h3');
-  heading.id = modal.closest('.overlay').id + '-title';
+  if (!heading.id) heading.id = modal.closest('.overlay').id + '-title';
   modal.setAttribute('aria-labelledby', heading.id);
   modal.querySelectorAll('.closebtn').forEach(button => button.setAttribute('aria-label', 'Close dialog'));
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') $$('.overlay').forEach(o => o.hidden = true);
+  if (e.key === 'Escape') $$('.overlay').forEach(o => { if (o.id !== 'auth-gate') o.hidden = true; });
   if (e.key === 'Tab') {
     const modal = $$('.overlay').find(overlay => !overlay.hidden);
     if (!modal) return;
