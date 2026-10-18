@@ -1,0 +1,5 @@
+# Generated locally / in CI — never commit
+.env
+annotator/config.js
+__pycache__/
+*.pyc

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annotation Studio — HumAID Reddit Threads</title>
+<link rel="stylesheet" href="annotator/styles.css">
+</head>
+<body>
+
+<!-- ================= AUTH GATE ================= -->
+<div class="overlay" id="auth-gate" hidden>
+  <div class="modal authmodal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <header>
+      <h3 id="auth-title">Sign in to annotate</h3>
+    </header>
+    <form id="auth-form" autocomplete="on">
+      <div class="authfield">
+        <label for="auth-email">Email</label>
+        <input id="auth-email" type="email" required autocomplete="username" placeholder="you@lab.edu">
+      </div>
+      <div class="authfield">
+        <label for="auth-password">Password</label>
+        <input id="auth-password" type="password" required minlength="6" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <div class="authfield" id="auth-code-field" hidden>
+        <label for="auth-code">Access code</label>
+        <input id="auth-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Provided to annotators">
+      </div>
+      <div class="auth-err" id="auth-error" role="alert"></div>
+      <div class="auth-actions">
+        <button class="btn" type="submit" id="auth-submit">Sign in</button>
+        <button class="btn ghost" type="button" id="auth-signup">Create account</button>
+      </div>
+    </form>
+    <footer><span class="hint" id="auth-note">Labels sync to Supabase for your account and stay in this browser as a fallback.</span></footer>
+  </div>
+</div>
+
+<!-- ================= HOME ================= -->
+<div id="home">
+  <div class="brand"><span class="brand-mark">a.</span> FIELDNOTES <span class="local-badge" id="workspace-badge">● Local workspace</span></div>
+  <div class="eyebrow">LA WILDFIRES / RESEARCH WORKSPACE</div>
+  <h1>Annotation Studio</h1>
+  <p class="sub">Read the conversation. Understand the context. Make every label count.</p>
+
+  <div class="panel">
+    <h2><span class="step">01</span> Set up your annotation project</h2>
+    <form id="newproj-form">
+      <div class="newproj">
+        <input id="newproj-name" aria-label="Project name" type="text" placeholder="e.g. Eaton Fire · Round 2" required maxlength="80" pattern=".{1,80}">
+      </div>
+      <div class="caprow">
+        <label>Max reply depth
+          <input type="number" id="cap-depth" min="1" step="1" placeholder="Unlimited"><span class="hint">1 = direct replies to the post</span></label>
+        <label>Max total comments
+          <input type="number" id="cap-total" min="1" step="1" placeholder="Unlimited"><span class="hint">Across unique threads in this project</span></label>
+      </div>
+      <div class="filter-preview" data-filter-preview="cap"></div>
+      <div class="create-actions"><button class="btn" type="submit" id="btn-create">Start full annotation →</button>
+      <button class="btn ghost" type="submit" id="btn-create-blank-500">Relabel 500 targets</button></div>
+    </form>
+    <div class="hint">Full annotation labels every visible row. Relabel starts the original 500 targets empty and guides you through them. Filters can hide targets; clear both for a complete 500-target pass.</div>
+  </div>
+  <div class="section-heading"><h2>Your projects</h2><div class="heading-actions"><button class="btn ghost" id="btn-import">Import CSV</button><button class="btn ghost" id="btn-signout" hidden>Sign out</button></div></div>
+  <div id="file-list"></div>
+  <p class="home-footnote">HumAID taxonomy · Reddit conversations · Saved in this browser</p>
+</div>
+
+<!-- ================= WORKSPACE ================= -->
+<div id="workspace" hidden>
+  <header id="topbar">
+    <button class="navbtn" id="btn-home" title="All projects">a. / Projects</button>
+    <button class="navbtn" id="btn-settings" title="Change project filters">Filters</button>
+    <div class="proj" id="proj-name">—<small id="proj-sub"></small></div>
+    <nav id="tasknav">
+      <button class="navbtn" id="btn-prev" title="Previous task (←)">◀ Prev</button>
+      <div id="taskpos">—<small id="task-meta"></small></div>
+      <button class="navbtn" id="btn-next" title="Next task (→)">Next ▶</button>
+      <button class="navbtn" id="btn-focus" title="Large threads: show only each target's reply chain and its siblings. Click for the full thread.">Focus</button>
+    </nav>
+    <div id="top-actions">
+      <button class="bigbtn" id="btn-view">Review rows</button>
+      <button class="bigbtn" id="btn-export">Export</button>
+      <button class="navbtn" id="btn-signout-top" hidden title="Sign out of Supabase">Sign out</button>
+    </div>
+  </header>
+  <div class="workspace-layout">
+    <aside class="queue-panel"><div class="eyebrow">CONVERSATIONS</div><h2>Thread queue <span id="queue-count" class="badge"></span></h2>
+      <input id="queue-search" type="search" placeholder="Search title, community, or ID…" aria-label="Search threads">
+      <div id="scope-summary" role="status"></div><div id="thread-queue"></div>
+    </aside>
+    <div class="reading-pane"><div class="reading-heading"><span class="eyebrow">ANNOTATION DESK</span><span id="visible-count" role="status"></span></div><main id="thread"></main></div>
+    <aside class="guide-panel"><div class="eyebrow">LABELING GUIDE</div><h2>A little context helps.</h2><p>Read the post and nearby replies before choosing the most specific HumAID label.</p><div id="label-guide"></div><div class="guide-note">Your labels save automatically in this browser. Export a copy before switching devices.</div></aside>
+  </div>
+</div>
+
+<div id="statusbar" hidden>
+  <span>Labeled: <b id="st-labeled">0</b></span>
+  <span>Project: <b id="st-project">—</b></span>
+  <span>← / → to switch tasks</span>
+  <span id="st-storage"></span>
+  <span id="st-sync" hidden title="Supabase sync"></span>
+</div>
+
+<button id="point-btn" hidden title="Jump to next unlabeled node">Point</button>
+<div id="point-progress" hidden></div>
+
+<!-- ================= VIEW MODAL ================= -->
+<div class="overlay" id="view-modal" hidden>
+  <div class="modal">
+    <header>
+      <h3>View rows</h3>
+      <button class="closebtn" data-close>×</button>
+    </header>
+    <div class="toolbar">
+      <label>Scope
+        <select id="v-scope">
+          <option value="labeled" selected>Labeled rows only</option>
+          <option value="loaded">All rows of loaded tasks</option>
+        </select>
+      </label>
+      <label>Label
+        <select id="v-label"><option value="">(any)</option></select>
+      </label>
+      <label>Role
+        <select id="v-role">
+          <option value="">(any)</option>
+          <option value="op">post (op)</option>
+          <option value="comment">comment</option>
+          <option value="target">target</option>
+        </select>
+      </label>
+      <label>Task
+        <input type="search" id="v-task" placeholder="task # or id…">
+      </label>
+      <label>Text search
+        <input type="search" id="v-text" placeholder="substring…">
+      </label>
+      <span class="count" id="v-count"></span>
+    </div>
+    <div class="body-area">
+      <table class="view">
+        <thead>
+          <tr>
+            <th data-sort="task">task</th>
+            <th data-sort="id">node id</th>
+            <th data-sort="parent">parent id</th>
+            <th data-sort="role">role</th>
+            <th data-sort="label">label</th>
+            <th data-sort="created">created (utc)</th>
+            <th data-sort="text">text</th>
+          </tr>
+        </thead>
+        <tbody id="v-body"></tbody>
+      </table>
+    </div>
+    <footer>
+      <span class="count" id="v-pageinfo"></span>
+      <span class="grow"></span>
+      <button class="btn ghost" id="v-more">Show more</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ================= EXPORT MODAL ================= -->
+<div class="overlay" id="export-modal" hidden>
+  <div class="modal" style="width:min(760px,100%)">
+    <header>
+      <h3>Export</h3>
+      <button class="closebtn" data-close>×</button>
+    </header>
+    <div class="exportopts" id="export-opts">
+      <label class="exportopt sel" data-opt="labeled-csv">
+        <input type="checkbox" name="exp" value="labeled-csv" checked>
+        <span class="expbody"><b>Labeled rows → CSV</b>
+        <span class="hint">Only rows that carry a label — id, parent id, role, label, text (+ task &amp; provenance). Default.</span>
+        <pre class="expreview"></pre></span>
+      </label>
+      <label class="exportopt" data-opt="labeled-json">
+        <input type="checkbox" name="exp" value="labeled-json">
+        <span class="expbody"><b>Labeled rows → JSON</b>
+        <span class="hint">Same rows as objects, including old annotation for comparison.</span>
+        <pre class="expreview"></pre></span>
+      </label>
+      <label class="exportopt" data-opt="full-csv">
+        <input type="checkbox" name="exp" value="full-csv">
+        <span class="expbody"><b>Full project → CSV (labels merged)</b>
+        <span class="hint">Every row of the project; the label column is filled where marked. Large projects load all chunks first.</span>
+        <pre class="expreview"></pre></span>
+      </label>
+      <label class="exportopt" data-opt="labels-tsv">
+        <input type="checkbox" name="exp" value="labels-tsv">
+        <span class="expbody"><b>Labeled rows → clipboard (TSV)</b>
+        <span class="hint">Paste straight into a spreadsheet.</span>
+        <pre class="expreview"></pre></span>
+      </label>
+      <label class="exportopt" data-opt="five-hundred">
+        <input type="checkbox" name="exp" value="five-hundred">
+        <span class="expbody"><b>Relabeled 500 → CSV <span class="hint">(post_id, post_text, class_label)</span></b>
+        <span class="hint">Exactly the original 500-file schema — one row per original annotation, so it diffs 1:1 against the source file.</span>
+        <pre class="expreview"></pre></span>
+      </label>
+    </div>
+    <footer>
+      <span id="export-progress"></span>
+      <span class="grow"></span>
+      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn" id="btn-do-export">Export</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ================= SETTINGS MODAL ================= -->
+<div class="overlay" id="settings-modal" hidden>
+  <div class="modal" style="width:min(560px,100%)">
+    <header>
+      <h3>Project filters</h3>
+      <button class="closebtn" data-close>×</button>
+    </header>
+    <div class="exportopts settings-body">
+      <div class="caprow" style="margin:0">
+        <label>Max reply depth
+          <input type="number" id="set-depth" min="1" step="1" placeholder="all"></label>
+        <label>Max total comments
+          <input type="number" id="set-total" min="1" step="1" placeholder="all"></label>
+      </div>
+      <div class="hint" id="set-status"></div>
+      <div class="filter-preview" data-filter-preview="set"></div>
+      <div class="hint">Leave blank for unlimited. Depth 1 includes direct replies. The total counts unique comments across threads, after depth filtering; posts are excluded. Targets follow the same limits. Existing labels are retained. Exports include saved labels or the full source, as selected.</div>
+    </div>
+    <footer>
+      <span class="grow"></span>
+      <button class="btn ghost" id="btn-reset-filters">Clear filters</button>
+      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn" id="btn-apply-settings">Apply</button>
+    </footer>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".csv,text/csv" hidden>
+<div class="toast" id="toast"></div>
+
+<script src="data_annotated/index.js"></script>
+<script src="annotator/config.js"></script>
+<script src="annotator/repository.js"></script>
+<script src="annotator/auth.js"></script>
+<script src="annotator/sync.js"></script>
+<script src="annotator/scope.js"></script>
+<script src="annotator/reference-data.js"></script>
+<script src="annotator/app.js"></script>
+<script src="annotator/filter-preview.js"></script>
+<script src="annotator/review.js"></script>
+<script src="annotator/exports.js"></script>
+</body>
+</html>
