@@ -127,7 +127,7 @@ function applyTrim(proj, raw) {
 }
 
 /* Relabel-500 only (explicitly created target projects): every target and its
-   reply chain ignores depth and the per-post max and never counts toward it.
+   reply chain ignores depth and the per-post max and sits outside the count.
    Full-pass projects apply both limits to everything. */
 function exemptKeep(proj, group) {
   if (state.template !== 'relabel') return null;

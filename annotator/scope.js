@@ -1,10 +1,11 @@
 'use strict';
 
 // Pure filtering: stable breadth-first order, no source mutation.
-// `caps.total` caps each thread independently — it is re-read on every call,
-// so no thread ever spends another thread's allowance.
-// Exempt ids (relabel targets) survive depth and cap limits together with
-// their ancestor chain, and never count toward the cap.
+// `caps.total` is a hard per-post count, re-read on every call: each post
+// keeps exactly its first N comments + replies (breadth-first, oldest first);
+// the post row itself is not part of that count.
+// Exempt ids (relabel targets) survive depth and the max together with
+// their ancestor chain and are not part of the count.
 // Usable from classic scripts (including file://) and Node tests.
 (function (root) {
   function normalize(caps = {}) {

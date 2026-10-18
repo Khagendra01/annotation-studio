@@ -55,13 +55,13 @@
         <label>Depth under the post
           <input type="number" id="cap-depth" min="1" step="1" placeholder="All levels"><span class="hint">1 = only the comments under the post · 2 = also their replies · 3 = deeper</span></label>
         <label>Max comments per post
-          <input type="number" id="cap-total" min="1" step="1" placeholder="No limit"><span class="hint">Comments + replies together · the post itself never counts</span></label>
+          <input type="number" id="cap-total" min="1" step="1" placeholder="No limit"><span class="hint">Hard count: after depth, each post keeps exactly its first N comments + replies — breadth-first, oldest first. N = 5 → 5th kept, 6th cut, even if nothing follows. Each post counts separately; the post row itself is free. 500-target projects don't consume N on targets or their chains.</span></label>
       </div>
       <div class="filter-preview" data-filter-preview="cap"></div>
       <div class="create-actions"><button class="btn" type="submit" id="btn-create">Start full annotation →</button>
       <button class="btn ghost" type="submit" id="btn-create-blank-500">Relabel 500 targets</button></div>
     </form>
-    <div class="hint">Full annotation labels every row you see. Relabel 500 targets opens each post with its original 500 comments emptied and walks you through them. Both limits apply to each post separately: Depth decides how far down the conversation you see (1 = its comments, 2 = also replies to them), Max comments trims that one post to N comments + replies — the post itself is free, and every post stays in your list. In 500-target projects, each target and the replies around it always stay visible and never count toward the max.</div>
+    <div class="hint">Full annotation labels every row you see. Relabel 500 targets opens each post with its original 500 comments emptied and walks you through them. Both limits apply to each post separately. Depth decides how far down the conversation you see: 1 = the comments under the post, 2 = also their replies, 3 = deeper. Max comments is a hard count — after depth filtering each post keeps exactly its first N comments + replies, breadth-first and oldest first: at N = 5 the 5th is kept and the 6th is cut, even if nothing else follows. Each post has its own count; a big post never shrinks a small one, and every post stays in your list. The post row itself is free, and in 500-target projects each target and the replies around it always stay visible without consuming N.</div>
   </div>
   <div class="section-heading"><h2>Your projects</h2><div class="heading-actions"><button class="btn ghost" id="btn-import">Import CSV</button><button class="btn ghost" id="btn-signout" hidden>Sign out</button></div></div>
   <div id="file-list"></div>
@@ -228,7 +228,7 @@
       </div>
       <div class="hint" id="set-status"></div>
       <div class="filter-preview" data-filter-preview="set"></div>
-      <div class="hint">Blank = unlimited. Depth: 1 = only the post's direct comments, 2 = also their replies, 3 = one level deeper. Max comments: every post keeps up to N of its comments + replies on its own — one post never uses up another's allowance, and the post itself never counts. In 500-target projects, targets and the replies around them always stay visible and never count toward the max. Existing labels are kept. Exports include saved labels or the full source, as selected.</div>
+      <div class="hint">Blank = unlimited. Depth: 1 = only the post's direct comments, 2 = also their replies, 3 = one level deeper. Max comments is a hard count per post: after depth filtering, each post keeps exactly its first N comments + replies — breadth-first, oldest first — so at N = 5 the 5th is kept and the 6th is cut, even if nothing follows. Each post counts on its own; one big post never shrinks another, and the post row itself is free. In 500-target projects, targets and the replies around them always stay visible without consuming N. Existing labels are kept. Exports include saved labels or the full source, as selected.</div>
     </div>
     <footer>
       <span class="grow"></span>

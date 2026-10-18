@@ -41,7 +41,7 @@ window.FilterPreview = (() => {
       <p class="preview-explainer">Depth = how many levels you see under each post (1 = its comments, 2 = also their replies). Max comments = how many comments + replies one post may show — each post has its own allowance.</p>
       <div class="preview-presets" aria-label="Try example filter values"><span>Try it:</span><button type="button" data-preset="depth" aria-label="Show only the comments directly under each post">Levels 1</button><button type="button" data-preset="total" aria-label="Allow each post up to 3 comments and replies">Max 3</button><button type="button" data-preset="all" aria-label="Remove all limits">Unlimited</button></div>
       <div class="preview-threads">${threads}</div>
-      <div class="preview-summary" id="${prefix}-preview-summary" role="status" aria-live="polite"><strong>${included} of 6 example comments included</strong><span>✓ Included <span class="preview-legend-hidden">− Hidden by filters</span> · Posts don’t count</span></div>`;
+      <div class="preview-summary" id="${prefix}-preview-summary" role="status" aria-live="polite"><strong>${included} of 6 example comments included</strong><span>✓ Included <span class="preview-legend-hidden">− Hidden by filters</span></span></div>`;
     depthInput.setAttribute('aria-describedby', prefix + '-preview-summary');
     totalInput.setAttribute('aria-describedby', prefix + '-preview-summary');
   }
