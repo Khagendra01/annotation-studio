@@ -52,16 +52,16 @@
         <input id="newproj-name" aria-label="Project name" type="text" placeholder="e.g. Eaton Fire · Round 2" required maxlength="80" pattern=".{1,80}">
       </div>
       <div class="caprow">
-        <label>Reply depth
-          <input type="number" id="cap-depth" min="1" step="1" placeholder="Unlimited"><span class="hint">Per thread · 1 = direct replies to the post</span></label>
-        <label>Comments per thread
-          <input type="number" id="cap-total" min="1" step="1" placeholder="Unlimited"><span class="hint">Each thread keeps up to N · posts are free</span></label>
+        <label>Depth under the post
+          <input type="number" id="cap-depth" min="1" step="1" placeholder="All levels"><span class="hint">1 = only the comments under the post · 2 = also their replies · 3 = deeper</span></label>
+        <label>Max comments per post
+          <input type="number" id="cap-total" min="1" step="1" placeholder="No limit"><span class="hint">Comments + replies together · the post itself never counts</span></label>
       </div>
       <div class="filter-preview" data-filter-preview="cap"></div>
       <div class="create-actions"><button class="btn" type="submit" id="btn-create">Start full annotation →</button>
       <button class="btn ghost" type="submit" id="btn-create-blank-500">Relabel 500 targets</button></div>
     </form>
-    <div class="hint">Full annotation labels every visible row. Relabel starts the original 500 targets empty and guides you through them. Both filters are per thread: depth cuts how far a reply chain goes, and the comment cap trims each thread to at most N comments — no thread ever disappears. In 500-target projects, every target and its reply chain always stays in scope and never counts toward the cap.</div>
+    <div class="hint">Full annotation labels every row you see. Relabel 500 targets opens each post with its original 500 comments emptied and walks you through them. Both limits apply to each post separately: Depth decides how far down the conversation you see (1 = its comments, 2 = also replies to them), Max comments trims that one post to N comments + replies — the post itself is free, and every post stays in your list. In 500-target projects, each target and the replies around it always stay visible and never count toward the max.</div>
   </div>
   <div class="section-heading"><h2>Your projects</h2><div class="heading-actions"><button class="btn ghost" id="btn-import">Import CSV</button><button class="btn ghost" id="btn-signout" hidden>Sign out</button></div></div>
   <div id="file-list"></div>
@@ -221,14 +221,14 @@
     </header>
     <div class="exportopts settings-body">
       <div class="caprow" style="margin:0">
-        <label>Reply depth
-          <input type="number" id="set-depth" min="1" step="1" placeholder="all"></label>
-        <label>Comments per thread
-          <input type="number" id="set-total" min="1" step="1" placeholder="all"></label>
+        <label>Depth under the post
+          <input type="number" id="set-depth" min="1" step="1" placeholder="All levels"></label>
+        <label>Max comments per post
+          <input type="number" id="set-total" min="1" step="1" placeholder="No limit"></label>
       </div>
       <div class="hint" id="set-status"></div>
       <div class="filter-preview" data-filter-preview="set"></div>
-      <div class="hint">Leave blank for unlimited. Reply depth is per thread (1 = direct replies to the post). The comment cap also applies to each thread independently — every thread keeps up to N comments, posts never count, and no thread disappears from the queue. In 500-target projects, targets and their reply chains always stay in scope and never count toward the cap; the limits trim only surrounding context. Existing labels are retained. Exports include saved labels or the full source, as selected.</div>
+      <div class="hint">Blank = unlimited. Depth: 1 = only the post's direct comments, 2 = also their replies, 3 = one level deeper. Max comments: every post keeps up to N of its comments + replies on its own — one post never uses up another's allowance, and the post itself never counts. In 500-target projects, targets and the replies around them always stay visible and never count toward the max. Existing labels are kept. Exports include saved labels or the full source, as selected.</div>
     </div>
     <footer>
       <span class="grow"></span>

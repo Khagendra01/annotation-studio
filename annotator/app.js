@@ -127,7 +127,7 @@ function applyTrim(proj, raw) {
 }
 
 /* Relabel-500 only (explicitly created target projects): every target and its
-   reply chain ignores the per-thread limits and never counts toward the cap.
+   reply chain ignores depth and the per-post max and never counts toward it.
    Full-pass projects apply both limits to everything. */
 function exemptKeep(proj, group) {
   if (state.template !== 'relabel') return null;
@@ -168,8 +168,8 @@ function renderQueue() {
   $('#queue-count').textContent = tasks.length;
   const filters = [];
   if (proj.caps.depth) filters.push(`Depth ≤ ${proj.caps.depth}`);
-  if (proj.caps.total) filters.push(`≤ ${proj.caps.total.toLocaleString()} comments per thread`);
-  $('#scope-summary').textContent = filters.join(' · ') || 'All threads · No limits';
+  if (proj.caps.total) filters.push(`≤ ${proj.caps.total.toLocaleString()} comments per post`);
+  $('#scope-summary').textContent = filters.join(' · ') || 'All posts · No limits';
   const matches = tasks.filter(task => `${task.title} ${task.sub} ${task.threadId} ${task.i}`.toLowerCase().includes(query));
   $('#thread-queue').innerHTML = matches.map(task => `<button class="queue-item ${current && threadKeyOf(task) === threadKeyOf(current) ? 'active' : ''}" data-task="${task.i}" ${current && threadKeyOf(task) === threadKeyOf(current) ? 'aria-current="true"' : ''}><small>${task.sub ? 'r/' + esc(task.sub) : 'Reddit'} · #${task.i}</small><strong>${esc(task.title || task.targetText || task.threadId || 'Untitled conversation')}</strong></button>`).join('') || '<p class="hint">No matching threads.</p>';
 }
@@ -1062,8 +1062,8 @@ $('#btn-settings').onclick = () => {
   window.FilterPreview?.refresh('set');
   const cap = state.project.caps.total;
   document.getElementById('set-status').textContent =
-    `${state.project.threadGroup.size} unique threads · ` +
-    (cap ? `each thread keeps up to ${cap.toLocaleString()} comments` : 'no comment cap');
+    `${state.project.threadGroup.size} posts · ` +
+    (cap ? `each post keeps up to ${cap.toLocaleString()} comments + replies` : 'no comment max');
   $('#settings-modal').hidden = false;
   $('#set-depth').focus();
 };
