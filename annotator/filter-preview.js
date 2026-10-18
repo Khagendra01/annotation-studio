@@ -39,8 +39,8 @@ window.FilterPreview = (() => {
       }).join('')}</ol></div>`;
     }).join('');
     host.innerHTML = `<div class="preview-heading"><div><span class="eyebrow">SEE HOW IT WORKS</span><h3>Your filters, visualized</h3></div><span class="preview-example">Illustrative example</span></div>
-      <p class="preview-explainer">Depth controls how far a reply chain goes. The total is shared across threads.</p>
-      <div class="preview-presets" aria-label="Try example filter values"><span>Try it:</span><button type="button" data-preset="depth" aria-label="Try reply depth 1 with unlimited comments">Depth 1</button><button type="button" data-preset="total" aria-label="Try 3 total comments with unlimited depth">3 comments total</button><button type="button" data-preset="all">Unlimited</button></div>
+      <p class="preview-explainer">Depth controls how far a reply chain goes (per thread). The comment budget is one pool shared across all threads.</p>
+      <div class="preview-presets" aria-label="Try example filter values"><span>Try it:</span><button type="button" data-preset="depth" aria-label="Try reply depth 1 per thread with unlimited budget">Depth 1</button><button type="button" data-preset="total" aria-label="Try a whole-project comment budget of 3 with unlimited depth">Budget 3</button><button type="button" data-preset="all" aria-label="Remove all limits">Unlimited</button></div>
       <div class="preview-threads">${threads}</div>
       <div class="preview-summary" id="${prefix}-preview-summary" role="status" aria-live="polite"><strong>${included} of 6 example comments included</strong><span>✓ Included <span class="preview-legend-hidden">− Hidden by filters</span> · Posts don’t count</span></div>`;
     depthInput.setAttribute('aria-describedby', prefix + '-preview-summary');

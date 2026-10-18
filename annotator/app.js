@@ -124,7 +124,17 @@ function applyTrim(proj, raw) {
   const task = proj.tasks[state.taskIdx];
   const allowed = proj.scopeIds?.get(threadKeyOf(task));
   if (allowed) return raw.filter(row => allowed.has(col(proj, 'node_id', row)));
-  return AnnotationScope.select(raw, (key, row) => col(proj, key, row), proj.caps).rows;
+  const group = proj.threadGroup?.get(threadKeyOf(task)) || [task];
+  return AnnotationScope.select(raw, (key, row) => col(proj, key, row), proj.caps, Infinity, exemptKeep(proj, group)).rows;
+}
+
+/* Relabel-500 only (explicitly created target projects): every target and its
+   reply chain ignores the project limits and never spends comment budget.
+   Full-pass projects apply both limits to everything. */
+function exemptKeep(proj, group) {
+  if (state.template !== 'relabel') return null;
+  const targets = (group || []).map(task => task.target).filter(Boolean);
+  return targets.length ? new Set(targets) : null;
 }
 
 /* Allocate an exact total budget once per unique thread, including partial threads. */
@@ -136,14 +146,15 @@ async function computeBlocked(proj) {
   for (const [key, group] of proj.threadGroup) {
     if (state.project !== proj) return;
     const remaining = proj.caps.total - proj.usedComments;
-    if (remaining <= 0) { group.forEach(task => task.blocked = true); continue; }
+    const keep = exemptKeep(proj, group);
+    if (remaining <= 0 && !keep) { group.forEach(task => task.blocked = true); continue; }
     $('#scope-summary').textContent = `Preparing scope · ${proj.usedComments.toLocaleString()} comments…`;
     const merged = new Map();
     for (const task of group) {
       await ensureTaskRows(task);
       for (const row of task.rawRows) merged.set(col(proj, 'node_id', row), row);
     }
-    const selected = AnnotationScope.select([...merged.values()], (k, r) => col(proj, k, r), proj.caps, remaining);
+    const selected = AnnotationScope.select([...merged.values()], (k, r) => col(proj, k, r), proj.caps, Math.max(remaining, 0), keep);
     proj.scopeIds.set(key, new Set(selected.rows.map(row => col(proj, 'node_id', row))));
     proj.usedComments += selected.comments;
   }
@@ -199,10 +210,13 @@ $('#label-guide').innerHTML = HUMAID.map(([label, description]) => `<details><su
 
 // Selected targets are derived from the same scope as the reading pane.
 function targetInScope(task) {
-  const allowed = state.project.scopeIds?.get(threadKeyOf(task));
+  const proj = state.project;
+  const allowed = proj.scopeIds?.get(threadKeyOf(task));
   if (allowed) return allowed.has(task.target);
-  if (!state.project.caps.depth || !task.rawRows) return true;
-  return AnnotationScope.select(task.rawRows, (k, r) => col(state.project, k, r), state.project.caps).rows.some(row => col(state.project, 'node_id', row) === task.target);
+  if (!proj.caps.depth || !task.rawRows) return true;
+  const group = proj.threadGroup?.get(threadKeyOf(task)) || [task];
+  return AnnotationScope.select(task.rawRows, (k, r) => col(proj, k, r), proj.caps, Infinity, exemptKeep(proj, group))
+    .rows.some(row => col(proj, 'node_id', row) === task.target);
 }
 
 function toast(msg, ms = 2200) {
@@ -627,8 +641,8 @@ async function renderTask() {
     const caps = proj.caps || {};
     host.innerHTML = `<div class="card">
       <div class="post-title">⏸ Data cap reached</div>
-      <p class="body">This project's cap of <b>${(caps.total || 0).toLocaleString()}</b> total comments is used up before task ${esc(String(task.i))}.
-      Open <b>Filters</b> to raise or clear the total limit.</p>
+      <p class="body">This project's comment budget of <b>${(caps.total || 0).toLocaleString()}</b> is used up before task ${esc(String(task.i))}.
+      Open <b>Filters</b> to raise or clear the budget.</p>
     </div>`;
     updatePointUI();
     return;
@@ -691,7 +705,9 @@ async function renderTask() {
   if (!roots.length) { host.innerHTML = '<div class="card">No rows for this task.</div>'; updatePointUI(); return; }
 
   host.innerHTML = '';
-  if (proj.caps.depth || proj.caps.total) host.insertAdjacentHTML('beforeend', '<div class="scope-notice">Project filters are active. Only rows within your limits appear here; saved labels remain available for export.</div>');
+  if (proj.caps.depth || proj.caps.total) host.insertAdjacentHTML('beforeend', state.template === 'relabel'
+    ? '<div class="scope-notice">Filters trim surrounding context only — every 500-target and its reply chain stays in view. Saved labels remain available for export.</div>'
+    : '<div class="scope-notice">Project filters are active. Only rows within your limits appear here; saved labels remain available for export.</div>');
   if (task.note) {
     const note = state.template === 'full' ? task.note.replace(/Label only the highlighted target\./gi, '') : task.note;
     host.insertAdjacentHTML('beforeend', `<div class="note">${esc(note)}</div>`);
@@ -1086,7 +1102,7 @@ $('#btn-settings').onclick = () => {
   const blocked = state.project.tasks.filter(t => t.blocked).length;
   document.getElementById('set-status').textContent =
     `${state.project.threadGroup.size} unique threads · ` +
-    (blocked ? `${blocked} source tasks outside total limit` : 'all threads reachable');
+    (blocked ? `${blocked} source tasks beyond the comment budget` : 'all threads reachable');
   $('#settings-modal').hidden = false;
   $('#set-depth').focus();
 };
