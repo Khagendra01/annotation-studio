@@ -54,14 +54,14 @@
       <div class="caprow">
         <label>Reply depth
           <input type="number" id="cap-depth" min="1" step="1" placeholder="Unlimited"><span class="hint">Per thread · 1 = direct replies to the post</span></label>
-        <label>Comment budget
-          <input type="number" id="cap-total" min="1" step="1" placeholder="Unlimited"><span class="hint">Whole project · one pool across all threads</span></label>
+        <label>Comments per thread
+          <input type="number" id="cap-total" min="1" step="1" placeholder="Unlimited"><span class="hint">Each thread keeps up to N · posts are free</span></label>
       </div>
       <div class="filter-preview" data-filter-preview="cap"></div>
       <div class="create-actions"><button class="btn" type="submit" id="btn-create">Start full annotation →</button>
       <button class="btn ghost" type="submit" id="btn-create-blank-500">Relabel 500 targets</button></div>
     </form>
-    <div class="hint">Full annotation labels every visible row. Relabel starts the original 500 targets empty and guides you through them. Reply depth is per thread; the comment budget is shared across the whole project. In 500-target projects, every target and its reply chain always stays in scope and never counts against the budget.</div>
+    <div class="hint">Full annotation labels every visible row. Relabel starts the original 500 targets empty and guides you through them. Both filters are per thread: depth cuts how far a reply chain goes, and the comment cap trims each thread to at most N comments — no thread ever disappears. In 500-target projects, every target and its reply chain always stays in scope and never counts toward the cap.</div>
   </div>
   <div class="section-heading"><h2>Your projects</h2><div class="heading-actions"><button class="btn ghost" id="btn-import">Import CSV</button><button class="btn ghost" id="btn-signout" hidden>Sign out</button></div></div>
   <div id="file-list"></div>
@@ -223,12 +223,12 @@
       <div class="caprow" style="margin:0">
         <label>Reply depth
           <input type="number" id="set-depth" min="1" step="1" placeholder="all"></label>
-        <label>Comment budget
+        <label>Comments per thread
           <input type="number" id="set-total" min="1" step="1" placeholder="all"></label>
       </div>
       <div class="hint" id="set-status"></div>
       <div class="filter-preview" data-filter-preview="set"></div>
-      <div class="hint">Leave blank for unlimited. Reply depth is per thread (1 = direct replies to the post). The comment budget is one pool for the whole project — threads fill in source order until it runs out; posts are free. In 500-target projects, targets and their reply chains always stay in scope and never spend budget; the limits trim only surrounding context. Existing labels are retained. Exports include saved labels or the full source, as selected.</div>
+      <div class="hint">Leave blank for unlimited. Reply depth is per thread (1 = direct replies to the post). The comment cap also applies to each thread independently — every thread keeps up to N comments, posts never count, and no thread disappears from the queue. In 500-target projects, targets and their reply chains always stay in scope and never count toward the cap; the limits trim only surrounding context. Existing labels are retained. Exports include saved labels or the full source, as selected.</div>
     </div>
     <footer>
       <span class="grow"></span>

@@ -56,11 +56,11 @@ The workspace includes a searchable queue of unique threads, a reading pane, the
 There are exactly two project filters, available at creation and through **Filters**:
 
 - **Reply depth:** per thread — 1 includes direct replies to the post; 2 also includes replies to those comments. Leave blank for unlimited.
-- **Comment budget:** one strict pool for the whole project, shared across unique threads, after applying depth. Posts do not consume the budget. Threads use source order; comments use breadth-first order, sorted by timestamp and then ID. The last included thread can be partial. Repeated source tasks for the same thread share one budget allocation.
+- **Comments per thread:** each unique thread keeps up to N comments after depth filtering, counted independently — one thread's size never affects another. Posts do not count. Within a thread, comments are selected breadth-first, sorted by timestamp and then ID, so a large thread is trimmed at the tail while a small thread is shown completely. No thread ever disappears from the queue. Repeated source tasks for the same thread share one allocation.
 
-Projects created with **Relabel 500 targets** exempt every target and its reply chain from both limits: the chains stay in scope regardless of depth and never spend comment budget, so the budget only trims surrounding context and the full 500-target pass stays reachable. Full-pass projects apply both limits to everything, and depth can exclude some target rows there. Existing labels are retained when filters change. The removed per-thread comment cap is ignored in saved projects. Search only narrows the visible queue; it does not change project filters.
+Projects created with **Relabel 500 targets** exempt every target and its reply chain from both limits: the chains stay in scope regardless of depth and never count toward the cap, so the limits trim only surrounding context and the full 500-target pass stays reachable. Full-pass projects apply both limits to everything, and depth can exclude some target rows there. Existing labels are retained when filters change. The legacy `comments` storage key is ignored in saved projects. Search only narrows the visible queue; it does not change project filters.
 
-A live visual example appears beside the filters at creation and in the Filters dialog. Two sample conversations illustrate reply depth and the shared total budget. Green rows are included; dashed rows explain why they are hidden. The example presets fill the adjacent filters, and settings take effect when **Apply** is clicked. Example counts describe the six sample comments, not the size of the actual dataset.
+A live visual example appears beside the filters at creation and in the Filters dialog. Two sample conversations illustrate reply depth and the per-thread cap. Green rows are included; dashed rows explain why they are hidden. The example presets fill the adjacent filters, and settings take effect when **Apply** is clicked. Example counts describe the six sample comments, not the size of the actual dataset.
 
 Filters define the reading scope. Review can show labeled rows or all loaded source rows. Exports explicitly include saved labels, the entire source, or the original 500-row comparison, according to the selected format; they are not silently reduced to the reading scope.
 
@@ -71,7 +71,7 @@ Filters define the reading scope. Review can show labeled rows or all loaded sou
 - `annotator/app.js`: project lifecycle, lazy data loading, rendering, annotation, and navigation.
 - `annotator/review.js` and `annotator/exports.js`: row review and export workflows.
 - `annotator/reference-data.js`: the original annotations whose threads could not be recovered.
-- `annotator/scope.js`: pure, independently tested depth and budget selection.
+- `annotator/scope.js`: pure, independently tested depth and per-thread cap selection.
 - `annotator/filter-preview.js`: interactive examples using the same scope selector as real threads.
 - `annotator/repository.js`: browser persistence boundary; all project, label, filter, position, and imported-data storage goes through this class. Every write is announced through `window.__repoChanged`.
 - `annotator/auth.js`: Supabase email + password gate (`window.AuthGate`) — config detection, sign-in/sign-up/sign-out, session persistence, and the blocking overlay.

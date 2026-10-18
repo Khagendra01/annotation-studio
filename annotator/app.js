@@ -122,42 +122,17 @@ function applyFocus(proj, rows, targetIds) {
 /* Apply the same strict scope to rendering and Point navigation. */
 function applyTrim(proj, raw) {
   const task = proj.tasks[state.taskIdx];
-  const allowed = proj.scopeIds?.get(threadKeyOf(task));
-  if (allowed) return raw.filter(row => allowed.has(col(proj, 'node_id', row)));
   const group = proj.threadGroup?.get(threadKeyOf(task)) || [task];
-  return AnnotationScope.select(raw, (key, row) => col(proj, key, row), proj.caps, Infinity, exemptKeep(proj, group)).rows;
+  return AnnotationScope.select(raw, (key, row) => col(proj, key, row), proj.caps, exemptKeep(proj, group)).rows;
 }
 
 /* Relabel-500 only (explicitly created target projects): every target and its
-   reply chain ignores the project limits and never spends comment budget.
+   reply chain ignores the per-thread limits and never counts toward the cap.
    Full-pass projects apply both limits to everything. */
 function exemptKeep(proj, group) {
   if (state.template !== 'relabel') return null;
   const targets = (group || []).map(task => task.target).filter(Boolean);
   return targets.length ? new Set(targets) : null;
-}
-
-/* Allocate an exact total budget once per unique thread, including partial threads. */
-async function computeBlocked(proj) {
-  proj.scopeIds = new Map();
-  proj.usedComments = 0;
-  for (const task of proj.tasks) task.blocked = false;
-  if (!proj.caps.total) return;
-  for (const [key, group] of proj.threadGroup) {
-    if (state.project !== proj) return;
-    const remaining = proj.caps.total - proj.usedComments;
-    const keep = exemptKeep(proj, group);
-    if (remaining <= 0 && !keep) { group.forEach(task => task.blocked = true); continue; }
-    $('#scope-summary').textContent = `Preparing scope · ${proj.usedComments.toLocaleString()} comments…`;
-    const merged = new Map();
-    for (const task of group) {
-      await ensureTaskRows(task);
-      for (const row of task.rawRows) merged.set(col(proj, 'node_id', row), row);
-    }
-    const selected = AnnotationScope.select([...merged.values()], (k, r) => col(proj, k, r), proj.caps, Math.max(remaining, 0), keep);
-    proj.scopeIds.set(key, new Set(selected.rows.map(row => col(proj, 'node_id', row))));
-    proj.usedComments += selected.comments;
-  }
 }
 
 /* ============================ utils ============================ */
@@ -183,7 +158,7 @@ function setWorkspaceBusy(busy) {
 }
 function queueTasks() {
   const proj = state.project;
-  return [...proj.threadGroup.values()].map(group => group[0]).filter(task => !task.blocked);
+  return [...proj.threadGroup.values()].map(group => group[0]);
 }
 function renderQueue() {
   if (!state.project) return;
@@ -193,7 +168,7 @@ function renderQueue() {
   $('#queue-count').textContent = tasks.length;
   const filters = [];
   if (proj.caps.depth) filters.push(`Depth ≤ ${proj.caps.depth}`);
-  if (proj.caps.total) filters.push(`${proj.usedComments.toLocaleString()} / ${proj.caps.total.toLocaleString()} comments`);
+  if (proj.caps.total) filters.push(`≤ ${proj.caps.total.toLocaleString()} comments per thread`);
   $('#scope-summary').textContent = filters.join(' · ') || 'All threads · No limits';
   const matches = tasks.filter(task => `${task.title} ${task.sub} ${task.threadId} ${task.i}`.toLowerCase().includes(query));
   $('#thread-queue').innerHTML = matches.map(task => `<button class="queue-item ${current && threadKeyOf(task) === threadKeyOf(current) ? 'active' : ''}" data-task="${task.i}" ${current && threadKeyOf(task) === threadKeyOf(current) ? 'aria-current="true"' : ''}><small>${task.sub ? 'r/' + esc(task.sub) : 'Reddit'} · #${task.i}</small><strong>${esc(task.title || task.targetText || task.threadId || 'Untitled conversation')}</strong></button>`).join('') || '<p class="hint">No matching threads.</p>';
@@ -211,11 +186,10 @@ $('#label-guide').innerHTML = HUMAID.map(([label, description]) => `<details><su
 // Selected targets are derived from the same scope as the reading pane.
 function targetInScope(task) {
   const proj = state.project;
-  const allowed = proj.scopeIds?.get(threadKeyOf(task));
-  if (allowed) return allowed.has(task.target);
-  if (!proj.caps.depth || !task.rawRows) return true;
+  if (!proj.caps.depth && !proj.caps.total) return true;
+  if (!task.rawRows) return true;
   const group = proj.threadGroup?.get(threadKeyOf(task)) || [task];
-  return AnnotationScope.select(task.rawRows, (k, r) => col(proj, k, r), proj.caps, Infinity, exemptKeep(proj, group))
+  return AnnotationScope.select(task.rawRows, (k, r) => col(proj, k, r), proj.caps, exemptKeep(proj, group))
     .rows.some(row => col(proj, 'node_id', row) === task.target);
 }
 
@@ -547,11 +521,9 @@ async function startProject(proj, mode, template) {
   $('#home').hidden = true;
   $('#workspace').hidden = false;
   $('#statusbar').hidden = false;
-  $('#thread').innerHTML = '<div class="card">Preparing project scope…</div>';
-  setWorkspaceBusy(true);
-  try { await computeBlocked(proj); } finally { setWorkspaceBusy(false); }
+  $('#thread').innerHTML = '<div class="card">Loading thread…</div>';
   const saved = +repository.get(LS_POS(proj.name), 0);
-  state.taskIdx = proj.tasks.findIndex(t => t.i === saved && !t.blocked);
+  state.taskIdx = proj.tasks.findIndex(t => t.i === saved);
   if (state.taskIdx < 0) state.taskIdx = 0;
   $('#proj-name').innerHTML = state.template === 'relabel'
     ? `${esc(proj.name)}<small>${proj.threadGroup.size} threads · ${proj.tasks.length} annotations · Relabel-500 · Point</small>`
@@ -637,16 +609,6 @@ async function renderTask() {
   $('#visible-count').textContent = 'Loading…';
 
   const host = $('#thread');
-  if (task.blocked) {
-    const caps = proj.caps || {};
-    host.innerHTML = `<div class="card">
-      <div class="post-title">⏸ Data cap reached</div>
-      <p class="body">This project's comment budget of <b>${(caps.total || 0).toLocaleString()}</b> is used up before task ${esc(String(task.i))}.
-      Open <b>Filters</b> to raise or clear the budget.</p>
-    </div>`;
-    updatePointUI();
-    return;
-  }
   host.innerHTML = '<div class="card">Loading thread…</div>';
 
   let viewRows, taskOf, groupTargets, oldByTarget, groupSize;
@@ -886,7 +848,7 @@ function relabelGroupOf(task) {
 
 function unlabeledCount() {
   const proj = state.project, task = proj.tasks[state.taskIdx];
-  if (!task || task.blocked) return 0;
+  if (!task) return 0;
   if (state.template === 'relabel') {
     return relabelGroupOf(task).reduce((n, g) => n + (g.target && state.viewById?.has(g.target) && !isReviewed(g.target) ? 1 : 0), 0);
   }
@@ -902,11 +864,11 @@ function updatePointUI() {
   if (state.mode !== 'point' || !state.project) return;
   const btn = $('#point-btn'), prog = $('#point-progress');
   const task = state.project.tasks[state.taskIdx];
-  if (!task || task.blocked) {
+  if (!task) {
     btn.classList.add('done');
     btn.textContent = 'Next ▶';
-    btn.title = 'Data-capped task — go to next thread';
-    prog.textContent = 'capped';
+    btn.title = 'Go to next thread';
+    prog.textContent = '';
     return;
   }
   const left = unlabeledCount();
@@ -959,7 +921,7 @@ function jumpToNode(id) {
 
 function pointJump() {
   const proj = state.project, task = proj.tasks[state.taskIdx];
-  if (!task || task.blocked) return;
+  if (!task) return;
   if (state.template === 'relabel') {
     const group = relabelGroupOf(task);
     // Point always lands on the FIRST unlabeled 500-comment of this thread
@@ -986,7 +948,6 @@ function pointAdvance() {
     const key = t.threadId || ('i' + t.i);
     if (seen.has(key)) continue;
     seen.add(key);
-    if (t.blocked) continue;
     const group = proj.threadGroup.get(key) || [t];
     const pending = group.find(g => g.target && targetInScope(g) && !isReviewed(g.target));
     if (pending) { state.taskIdx = proj.tasks.indexOf(pending); renderTask().catch(reportError); return; }
@@ -1039,7 +1000,7 @@ function relabelNavStep(dir) {
     const has500 = group.some(g => g.target);          // thread must contain a 500-comment
     const pending = group.some(g => g.target && targetInScope(g) && !isReviewed(g.target));
     // Next: only threads with work left; Prev: any different thread (review)
-    if (!t.blocked && has500 && (dir < 0 || pending)) { state.taskIdx = i; renderTask().catch(reportError); return; }
+    if (has500 && (dir < 0 || pending)) { state.taskIdx = i; renderTask().catch(reportError); return; }
     while (i >= 0 && i < proj.tasks.length && threadKeyOf(proj.tasks[i]) === k) i += dir;  // skip whole thread
   }
   toast(dir > 0 ? '🎉 No threads left with unlabeled 500-comments — export your work!' : 'Start of project');
@@ -1099,10 +1060,10 @@ $('#btn-settings').onclick = () => {
   document.getElementById('set-depth').value = caps.depth || '';
   document.getElementById('set-total').value = caps.total || '';
   window.FilterPreview?.refresh('set');
-  const blocked = state.project.tasks.filter(t => t.blocked).length;
+  const cap = state.project.caps.total;
   document.getElementById('set-status').textContent =
     `${state.project.threadGroup.size} unique threads · ` +
-    (blocked ? `${blocked} source tasks beyond the comment budget` : 'all threads reachable');
+    (cap ? `each thread keeps up to ${cap.toLocaleString()} comments` : 'no comment cap');
   $('#settings-modal').hidden = false;
   $('#set-depth').focus();
 };
@@ -1121,15 +1082,12 @@ $('#btn-apply-settings').onclick = async () => {
   setWorkspaceBusy(true);
   try {
     proj.caps = caps;
-    await computeBlocked(proj);
     saveCaps(proj.name, caps);
-    if (proj.tasks[state.taskIdx].blocked) state.taskIdx = proj.tasks.findIndex(task => !task.blocked);
     $('#settings-modal').hidden = true;
     await renderTask();
     toast('Filters applied');
   } catch (error) {
     proj.caps = previous;
-    await computeBlocked(proj).catch(reportError);
     reportError(error);
   } finally {
     setWorkspaceBusy(false);
@@ -1171,7 +1129,7 @@ async function restoreRoute() {
   if (entry) await openSavedProject(name, entry.pre500 ? 'point' : 'thread', entry.pre500 ? 'relabel' : 'full');
   else if (name === SKELETON) await openSkeletonProject(name);
   else { toast('This project is not saved in this browser.'); return; }
-  const idx = state.project.tasks.findIndex(task => task.i === taskId && !task.blocked);
+  const idx = state.project.tasks.findIndex(task => task.i === taskId);
   if (idx >= 0) { state.taskIdx = idx; await renderTask(); }
 }
 restoreRoute().catch(error => { reportError(error); backHome(); });

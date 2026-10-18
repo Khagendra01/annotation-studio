@@ -1,16 +1,19 @@
 'use strict';
 
-// Pure filtering: stable breadth-first order, strict limits, no source mutation.
-// Exempt ids (relabel targets) survive depth and budget limits together with
-// their ancestor chain, and never spend budget.
+// Pure filtering: stable breadth-first order, no source mutation.
+// `caps.total` caps each thread independently — it is re-read on every call,
+// so no thread ever spends another thread's allowance.
+// Exempt ids (relabel targets) survive depth and cap limits together with
+// their ancestor chain, and never count toward the cap.
 // Usable from classic scripts (including file://) and Node tests.
 (function (root) {
   function normalize(caps = {}) {
     const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : 0;
     return { depth: positive(caps.depth), total: positive(caps.total) };
   }
-  function select(rows, get, caps = {}, remaining = Infinity, keep = null) {
-    const { depth } = normalize(caps);
+  function select(rows, get, caps = {}, keep = null) {
+    const { depth, total } = normalize(caps);
+    const budget = total || Infinity;
     const byId = new Map(rows.map(row => [get('node_id', row), row]));
     const children = new Map(), roots = [];
     for (const row of byId.values()) {
@@ -42,7 +45,7 @@
       if (visited.has(id)) continue;
       visited.add(id);
       const post = get('role', row) === 'op', free = post || exempt.has(id);
-      if (!free && ((depth && level > depth) || comments >= remaining)) continue;
+      if (!free && ((depth && level > depth) || comments >= budget)) continue;
       selected.add(id);
       if (!free) comments++;
       for (const child of children.get(id) || []) queue.push([child, level + 1]);
