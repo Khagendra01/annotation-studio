@@ -33,14 +33,80 @@ function effectiveLabel(entry) {
 }
 
 function sourceObject(proj, entry, schema) {
-  const obj = {};
-  if (schema === 'node') obj.task_index = entry.taskId;
+  const values = {};
   proj.columns.forEach((name, i) => {
-    obj[name] = name === 'label' ? effectiveLabel(entry) : (entry.row[i] ?? '');
+    values[name] = name === 'label' ? effectiveLabel(entry) : (entry.row[i] ?? '');
   });
-  if (proj.colIdx.label === undefined) obj.label = effectiveLabel(entry);
-  return obj;
+  if (proj.colIdx.label === undefined) values.label = effectiveLabel(entry);
+  if (schema !== 'node') return values;
+
+  const priority = ['task_index', 'node_id', 'parent_id', 'role', 'label', 'text'];
+  const ordered = {};
+  for (const key of priority) {
+    ordered[key] = key === 'task_index' ? entry.taskId : (values[key] ?? '');
+  }
+  for (const key of proj.columns) if (!priority.includes(key)) ordered[key] = values[key] ?? '';
+  return ordered;
 }
+
+const EXP_SAMPLE_PATH = [
+  { node_id: 't3_1hwabc', role: 'op', text: 'Where can families find shelter tonight?' },
+  { node_id: 't1_m8abc', role: 'comment', text: 'The community center is open and accepting evacuees.' },
+  { node_id: 't1_m8xyz', role: 'target', text: 'Do they have room for pets too?' },
+];
+const EXP_SAMPLE_SCHEMAS = {
+  original: {
+    name: 'Original project columns',
+    headers: ['task_index', 'thread_id', 'node_id', 'parent_id', 'role', 'created_utc', 'state', 'replies', 'is_target', 'text', 'label'],
+    row: ['12', '1hwabc', 't1_m8xyz', 't3_1hwabc', 'target', '2025-01-08 06:40 UTC', 'present', '2', '1', 'Do they have room for pets too?', 'requests_or_urgent_needs'],
+  },
+  node: {
+    name: 'Thread rows',
+    headers: ['task_index', 'node_id', 'parent_id', 'role', 'label', 'text', 'thread_id', 'created_utc', 'state', 'replies', 'is_target'],
+    row: ['12', 't1_m8xyz', 't3_1hwabc', 'target', 'requests_or_urgent_needs', 'Do they have room for pets too?', '1hwabc', '2025-01-08 06:40 UTC', 'present', '2', '1'],
+  },
+  '500': {
+    name: 'Relabeled 500 format',
+    headers: ['post_id', 'post_text', 'class_label'],
+    row: ['m8xyz', 'Do they have room for pets too?', 'requests_or_urgent_needs'],
+  },
+  tree: {
+    name: 'Target with full tree path',
+    headers: ['post_id', 'tree_path', 'class_label'],
+    row: ['m8xyz', EXP_SAMPLE_PATH, 'requests_or_urgent_needs'],
+  },
+};
+
+function renderExportSample() {
+  const schema = $('input[name="exp-schema"]:checked').value;
+  const format = $('input[name="exp-format"]:checked').value;
+  const sample = EXP_SAMPLE_SCHEMAS[schema];
+  $('#export-sample-name').textContent = sample.name;
+  const host = $('#export-sample-table');
+  host.replaceChildren();
+  const table = document.createElement('table');
+  const head = table.createTHead().insertRow();
+  for (const key of sample.headers) {
+    const cell = document.createElement('th');
+    cell.scope = 'col';
+    cell.textContent = key;
+    head.appendChild(cell);
+  }
+  const row = table.createTBody().insertRow();
+  sample.row.forEach(value => {
+    const cell = row.insertCell();
+    cell.textContent = keyForSample(schema, value, format);
+  });
+  host.appendChild(table);
+}
+
+function keyForSample(schema, value, format) {
+  if (schema !== 'tree' || !Array.isArray(value)) return String(value);
+  return JSON.stringify(value, null, format === 'json' ? 2 : 0);
+}
+
+$$('input[name="exp-schema"], input[name="exp-format"]').forEach(input => input.addEventListener('change', renderExportSample));
+renderExportSample();
 
 function fiveHundredEntries(proj) {
   return proj.tasks.map((task, i) => ({ task, taskId: task.i ?? i }))

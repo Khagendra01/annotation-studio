@@ -185,6 +185,11 @@
         <label class="export-choice"><input type="radio" name="exp-schema" value="500"><span><b>Relabeled 500 format</b><small>One row per original target: post_id, post_text, class_label</small></span></label>
         <label class="export-choice"><input type="radio" name="exp-schema" value="tree"><span><b>Target with full tree path</b><small>Relabeled 500 rows with root-to-target ancestor text in a structured tree_path field</small></span></label>
       </fieldset>
+      <section class="export-sample" aria-live="polite">
+        <div class="export-sample-title">Sample row · <span id="export-sample-name">Thread rows</span></div>
+        <p class="export-sample-hint">Select a row structure above to see one example row in that format.</p>
+        <div class="export-sample-scroll" id="export-sample-table"></div>
+      </section>
       <p class="export-note">Tree paths are stored as JSON arrays inside the CSV cell, or as arrays in JSON exports. The path runs from the original post through each parent to the target.</p>
     </div>
     <footer>
