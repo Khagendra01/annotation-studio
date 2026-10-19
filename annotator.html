@@ -166,42 +166,27 @@
 
 <!-- ================= EXPORT MODAL ================= -->
 <div class="overlay" id="export-modal" hidden>
-  <div class="modal" style="width:min(760px,100%)">
+  <div class="modal" style="width:min(680px,100%)">
     <header>
       <h3>Export</h3>
       <button class="closebtn" data-close>×</button>
     </header>
-    <div class="exportopts" id="export-opts">
-      <label class="exportopt sel" data-opt="labeled-csv">
-        <input type="checkbox" name="exp" value="labeled-csv" checked>
-        <span class="expbody"><b>Labeled rows → CSV</b>
-        <span class="hint">Only rows that carry a label — id, parent id, role, label, text (+ task &amp; provenance). Default.</span>
-        <pre class="expreview"></pre></span>
-      </label>
-      <label class="exportopt" data-opt="labeled-json">
-        <input type="checkbox" name="exp" value="labeled-json">
-        <span class="expbody"><b>Labeled rows → JSON</b>
-        <span class="hint">Same rows as objects, including old annotation for comparison.</span>
-        <pre class="expreview"></pre></span>
-      </label>
-      <label class="exportopt" data-opt="full-csv">
-        <input type="checkbox" name="exp" value="full-csv">
-        <span class="expbody"><b>Full project → CSV (labels merged)</b>
-        <span class="hint">Every row of the project; the label column is filled where marked. Large projects load all chunks first.</span>
-        <pre class="expreview"></pre></span>
-      </label>
-      <label class="exportopt" data-opt="labels-tsv">
-        <input type="checkbox" name="exp" value="labels-tsv">
-        <span class="expbody"><b>Labeled rows → clipboard (TSV)</b>
-        <span class="hint">Paste straight into a spreadsheet.</span>
-        <pre class="expreview"></pre></span>
-      </label>
-      <label class="exportopt" data-opt="five-hundred">
-        <input type="checkbox" name="exp" value="five-hundred">
-        <span class="expbody"><b>Relabeled 500 → CSV <span class="hint">(post_id, post_text, class_label)</span></b>
-        <span class="hint">Exactly the original 500-file schema — one row per original annotation, so it diffs 1:1 against the source file.</span>
-        <pre class="expreview"></pre></span>
-      </label>
+    <div class="export-config" id="export-opts">
+      <fieldset class="export-group"><legend>File type</legend>
+        <label class="export-choice"><input type="radio" name="exp-format" value="csv" checked><span><b>CSV</b><small>Opens in spreadsheets and data tools</small></span></label>
+        <label class="export-choice"><input type="radio" name="exp-format" value="json"><span><b>JSON</b><small>Structured data for scripts and pipelines</small></span></label>
+      </fieldset>
+      <fieldset class="export-group"><legend>Rows to include</legend>
+        <label class="export-choice"><input type="radio" name="exp-scope" value="labeled" checked><span><b>Labeled only</b><small>Rows with a saved or source label</small></span></label>
+        <label class="export-choice"><input type="radio" name="exp-scope" value="full"><span><b>Full project</b><small>All rows supported by the selected structure; saved labels are merged in</small></span></label>
+      </fieldset>
+      <fieldset class="export-group"><legend>Row structure</legend>
+        <label class="export-choice"><input type="radio" name="exp-schema" value="original"><span><b>Original project columns</b><small>Keep the source file’s columns and order</small></span></label>
+        <label class="export-choice"><input type="radio" name="exp-schema" value="node" checked><span><b>Thread rows</b><small>Node ID, parent ID, role, label, text, and source fields</small></span></label>
+        <label class="export-choice"><input type="radio" name="exp-schema" value="500"><span><b>Relabeled 500 format</b><small>One row per original target: post_id, post_text, class_label</small></span></label>
+        <label class="export-choice"><input type="radio" name="exp-schema" value="tree"><span><b>Target with full tree path</b><small>Relabeled 500 rows with root-to-target ancestor text in a structured tree_path field</small></span></label>
+      </fieldset>
+      <p class="export-note">Tree paths are stored as JSON arrays inside the CSV cell, or as arrays in JSON exports. The path runs from the original post through each parent to the target.</p>
     </div>
     <footer>
       <span id="export-progress"></span>

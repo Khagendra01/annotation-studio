@@ -62,7 +62,7 @@ Projects created with **Relabel 500 targets** exempt every target and its reply 
 
 A live visual example appears beside the filters at creation and in the Filters dialog. Two sample posts illustrate depth and the per-post max. Green rows are included; dashed rows explain why they are hidden. The example presets fill the adjacent filters, and settings take effect when **Apply** is clicked. Example counts describe the six sample comments, not the size of the actual dataset.
 
-Filters define the reading scope. Review can show labeled rows or all loaded source rows. Exports explicitly include saved labels, the entire source, or the original 500-row comparison, according to the selected format; they are not silently reduced to the reading scope.
+Filters define the reading scope. Review can show labeled rows or all loaded source rows. The export dialog independently selects CSV or JSON, labeled rows or the full project, and one of four structures: original project columns, thread rows with parent IDs, the original relabeled 500 format, or a relabeled 500 format with a structured root-to-target tree path. CSV tree paths are JSON arrays stored in one cell; JSON exports keep them as arrays. Exports are not silently reduced to the reading scope.
 
 ## Code organization and future database integration
 

@@ -143,20 +143,17 @@
   .count { color: var(--muted); font-size: 12px; padding: 8px 18px; }
   .modal footer { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; }
   .modal footer .grow { flex: 1; }
-  .exportopts { padding: 18px; display: grid; gap: 12px; }
-  .exportopt { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; cursor: pointer; }
-  .exportopt:hover { border-color: var(--blue); }
-  .exportopt.sel { border-color: var(--blue); background: #f0f7fd; }
-  .exportopt input[type=checkbox] { width: 16px; height: 16px; margin-top: 3px; accent-color: var(--blue); flex: none; }
-  .exportopt b { display: block; }
-  .exportopt .hint { margin-top: 2px; }
-  .exportopt .expbody { flex: 1; min-width: 0; }
-  .exportopt .expreview {
-    display: none; margin: 8px 0 0; padding: 8px 10px; background: #0f172a; color: #d1e3ff;
-    border-radius: 6px; font: 10.5px/1.45 ui-monospace, Menlo, monospace;
-    white-space: pre; overflow-x: auto; max-height: 150px; overflow-y: auto;
-  }
-  .exportopt.sel .expreview { display: block; }
+  .export-config { padding: 18px; display: grid; gap: 15px; }
+  .export-group { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 9px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .export-group legend { padding: 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .export-choice { display: flex; gap: 9px; align-items: flex-start; padding: 10px; border: 1px solid transparent; border-radius: 7px; background: #f7f8fa; cursor: pointer; }
+  .export-choice:has(input:checked) { border-color: var(--blue); background: #eef5fb; }
+  .export-choice input { margin: 2px 0 0; accent-color: var(--blue); }
+  .export-choice b, .export-choice small { display: block; }
+  .export-choice b { font-size: 12px; }
+  .export-choice small { margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+  .export-note { margin: -3px 1px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+  @media(max-width:600px) { .export-group { grid-template-columns: 1fr; } }
   #export-progress { font-size: 12px; color: var(--muted); }
 
   /* caps inputs */
