@@ -337,7 +337,6 @@ $('#newproj-form').addEventListener('submit', async e => {
     saveProjectList(list);
     $('#newproj-name').value = '';
     ['cap-depth', 'cap-total'].forEach(id => document.getElementById(id).value = '');
-    window.FilterPreview?.refresh('cap');
     if (with500) {
       updateLabeledCount();
       updatePointUI();
@@ -1059,7 +1058,6 @@ $('#btn-settings').onclick = () => {
   const caps = state.project.caps || {};
   document.getElementById('set-depth').value = caps.depth || '';
   document.getElementById('set-total').value = caps.total || '';
-  window.FilterPreview?.refresh('set');
   const cap = state.project.caps.total;
   document.getElementById('set-status').textContent =
     `${state.project.threadGroup.size} posts · ` +
@@ -1071,7 +1069,6 @@ $('#btn-settings').onclick = () => {
 $('#btn-reset-filters').onclick = () => {
   $('#set-depth').value = '';
   $('#set-total').value = '';
-  window.FilterPreview?.refresh('set');
 };
 $('#btn-apply-settings').onclick = async () => {
   if (state.busy) return;

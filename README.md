@@ -60,8 +60,6 @@ There are exactly two project filters, available at creation and through **Filte
 
 Projects created with **Relabel 500 targets** exempt every target and its reply chain from both limits: the chains stay visible regardless of depth and sit outside the count, so the limits trim only surrounding context and the full 500-target pass stays reachable. Full-pass projects apply both limits to everything, and depth can exclude some target rows there. Existing labels are retained when filters change. The legacy `comments` storage key is ignored in saved projects. Search only narrows the visible queue; it does not change project filters.
 
-A live visual example appears beside the filters at creation and in the Filters dialog. Two sample posts illustrate depth and the per-post max. Green rows are included; dashed rows explain why they are hidden. The example presets fill the adjacent filters, and settings take effect when **Apply** is clicked. Example counts describe the six sample comments, not the size of the actual dataset.
-
 Filters define the reading scope. Review can show labeled rows or all loaded source rows. The export dialog independently selects CSV or JSON, labeled rows or the full project, and one of four structures: original project columns, thread rows with parent IDs, the original relabeled 500 format, or a relabeled 500 format with a structured root-to-target tree path. CSV tree paths are JSON arrays stored in one cell; JSON exports keep them as arrays. Exports are not silently reduced to the reading scope.
 
 ## Code organization and future database integration
@@ -72,7 +70,6 @@ Filters define the reading scope. Review can show labeled rows or all loaded sou
 - `annotator/review.js` and `annotator/exports.js`: row review and export workflows.
 - `annotator/reference-data.js`: the original annotations whose threads could not be recovered.
 - `annotator/scope.js`: pure, independently tested depth and per-post max selection.
-- `annotator/filter-preview.js`: interactive examples using the same scope selector as real threads.
 - `annotator/repository.js`: browser persistence boundary; all project, label, filter, position, and imported-data storage goes through this class. Every write is announced through `window.__repoChanged`.
 - `annotator/auth.js`: Supabase email + password gate (`window.AuthGate`) — config detection, sign-in/sign-up/sign-out, session persistence, and the blocking overlay.
 - `annotator/sync.js`: cloud mirror (`window.RemoteSync`) — debounced diffs of projects, annotations, and positions against Supabase, with pull/merge at sign-in.
