@@ -2,8 +2,8 @@
 /* ============================ export modal ============================ */
 $('#btn-export').onclick = () => {
   if (!state.project) return;
-  const n = Object.keys(state.labels).length;
-  $('#export-progress').textContent = `${n} labeled node${n === 1 ? '' : 's'} in “${state.project.name}”`;
+  const n = Object.values(state.labels).filter(entry => entry?.rev).length;
+  $('#export-progress').textContent = `${n} saved label${n === 1 ? '' : 's'} in “${state.project.name}”`;
   $('#export-modal').hidden = false;
 };
 
@@ -30,6 +30,11 @@ function taskRows(proj) {
 
 function effectiveLabel(entry) {
   return state.labels[entry.id]?.label ?? entry.label ?? '';
+}
+
+function savedLabel(entry) {
+  const saved = state.labels[entry.id];
+  return saved?.rev ? saved.label ?? '' : '';
 }
 
 function sourceObject(proj, entry, schema) {
@@ -152,12 +157,12 @@ $('#btn-do-export').onclick = async () => {
     let objects;
     let filename = proj.name;
     if (schema === '500' || schema === 'tree') {
-      objects = fiveHundredEntries(proj).filter(e => scope === 'full' || effectiveLabel(e) !== '').map(e => schema === '500'
+      objects = fiveHundredEntries(proj).filter(e => scope === 'full' || savedLabel(e) !== '').map(e => schema === '500'
         ? { post_id: e.postId, post_text: e.text, class_label: effectiveLabel(e) }
         : { post_id: e.postId, tree_path: treePath(proj, e), class_label: effectiveLabel(e) });
       filename += schema === '500' ? '-relabelled-500' : '-relabelled-500-tree-path';
     } else {
-      const selected = scope === 'labeled' ? all.filter(e => effectiveLabel(e) !== '') : all;
+      const selected = scope === 'labeled' ? all.filter(e => savedLabel(e) !== '') : all;
       objects = selected.map(e => sourceObject(proj, e, schema));
       filename += scope === 'labeled' ? '-labeled' : '-full';
       filename += schema === 'node' ? '-threads' : '-original';
