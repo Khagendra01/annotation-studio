@@ -20,6 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate annotator before publishing
+        run: |
+          for source in annotator/*.js; do node --check "$source"; done
+          node --test tests/annotator-scope.test.cjs tests/annotator-sync.test.cjs
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -33,7 +42,16 @@ jobs:
 
       - name: Prepare the site folder
         run: |
-          cp annotator.html index.html
+          python3 - <<'PY'
+          import hashlib, pathlib, re
+          def version(match):
+              asset = pathlib.Path(match[2])
+              digest = hashlib.sha256(asset.read_bytes()).hexdigest()[:12]
+              return match[1] + match[2] + '?v=' + digest + match[3]
+          html = pathlib.Path('annotator.html').read_text()
+          html = re.sub(r'((?:src|href)=")(annotator/[^"?]+\.(?:js|css))(")', version, html)
+          pathlib.Path('index.html').write_text(html)
+          PY
           ls -A | grep -vE '^(index\.html|annotator|data_annotated)$' | xargs -r rm -rf
 
       - uses: actions/configure-pages@v5

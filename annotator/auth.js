@@ -17,6 +17,7 @@ window.AuthGate = (() => {
   let session = null;
   let entered = false;
   let entering = false;
+  let entryGeneration = 0;
   let mode = 'signin';            // 'signin' | 'signup' (signup reveals the access code)
   const listeners = [];
   let resolveReady;
@@ -126,6 +127,9 @@ window.AuthGate = (() => {
   /* Sign-in finished: pull the account's projects and labels, then reveal the app. */
   async function enter() {
     if (entering || entered) return;
+    const generation = ++entryGeneration;
+    const accountId = session?.user?.id;
+    let blocked = false;
     entering = true;
     const gate = $('#auth-gate');
     if (gate) gate.hidden = false;
@@ -134,10 +138,18 @@ window.AuthGate = (() => {
     try {
       if (window.RemoteSync) await window.RemoteSync.signIn();
     } catch (error) {
+      if (error.staleSession) return;
       console.error('[RemoteSync]', error);
+      if (error.blockWorkspace) {
+        blocked = true;
+        showGate('Could not open account storage: ' + error.message);
+        return;
+      }
       if (window.toast) window.toast('Cloud sync unavailable: ' + error.message, 4500);
     } finally {
+      if (generation !== entryGeneration || session?.user?.id !== accountId) return;
       entering = false;
+      if (blocked) return;
       entered = true;
       setNote(NOTE_DEFAULT);
       hideGate();
@@ -199,10 +211,12 @@ window.AuthGate = (() => {
   }
 
   async function signOut() {
+    entryGeneration++;
+    entering = false;
     entered = false;
+    if (window.RemoteSync) window.RemoteSync.signOut();
     if (client) { try { await client.auth.signOut(); } catch (error) { console.error(error); } }
     session = null;
-    if (window.RemoteSync) window.RemoteSync.signOut();
     showGate();
     identity();
     notify();
@@ -234,14 +248,23 @@ window.AuthGate = (() => {
       },
     });
     client.auth.onAuthStateChange((event, next) => {
+      const previousAccount = session?.user?.id;
       session = next;
       identity();
       if (event === 'SIGNED_OUT') {
+        entryGeneration++;
+        entering = false;
         entered = false;
         if (window.RemoteSync) window.RemoteSync.signOut();
         showGate();
         notify();
       } else if (event === 'SIGNED_IN' && next) {
+        if (previousAccount && previousAccount !== next.user.id) {
+          entryGeneration++;
+          entering = false;
+          entered = false;
+          if (window.RemoteSync) window.RemoteSync.signOut();
+        }
         enter();
       }
     });

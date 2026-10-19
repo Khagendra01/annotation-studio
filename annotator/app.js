@@ -19,6 +19,7 @@ const LS_LABELS = n => 'annotator.labels.v1.' + n;
 const LS_POS = n => 'annotator.pos.v1.' + n;
 const LS_DATA = n => 'annotator.data.v1.' + n;
 const LS_CAPS = n => 'annotator.caps.v1.' + n;
+const LS_DELETED = 'annotator.deleted-projects.v1';
 const repository = new AnnotationRepository();
 const SKELETON = 'linn_451';
 
@@ -36,12 +37,12 @@ const state = {
 };
 
 /* a 500-file target counts as "to do" until it has a label (rev: set on labeling) */
-const isReviewed = id => !!(state.labels[id] && state.labels[id].rev);
+const isReviewed = id => !!(state.labels[id]?.label && state.labels[id]?.rev);
 
 /* Point again on the same target = accept the current label; just tick it off */
 function markReviewed(id) {
   const e = state.labels[id];
-  if (!e) return;
+  if (!e?.label) return;
   if (e.rev) return;
   e.rev = true;
   saveLabels();
@@ -206,6 +207,11 @@ function loadProjectList() {
   catch { return []; }
 }
 function saveProjectList(list) {
+  const keep = new Set(list.map(project => project.name));
+  const deleted = new Set(repository.get(LS_DELETED, []));
+  for (const project of loadProjectList()) if (!keep.has(project.name)) deleted.add(project.name);
+  for (const name of keep) deleted.delete(name);
+  repository.set(LS_DELETED, [...deleted]);
   repository.set(LS_PROJECTS, list);
 }
 function loadLabels(name) {
@@ -245,6 +251,7 @@ function injectScript(src) {
 }
 
 function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
   const rows = [];
   let row = [], field = '', q = false;
   for (let i = 0; i < text.length; i++) {
@@ -258,6 +265,7 @@ function parseCSV(text) {
     else if (c === '\r') { /* skip */ }
     else field += c;
   }
+  if (q) throw new Error('CSV contains an unclosed quoted field.');
   if (field !== '' || row.length) { row.push(field); rows.push(row); }
   return rows;
 }
@@ -272,7 +280,7 @@ function download(name, mime, content) {
 
 function csvEscape(v) {
   const s = String(v ?? '');
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
 /* ============================ home ============================ */
@@ -286,7 +294,7 @@ function renderHome() {
   let html = '<div class="panel project-table">' +
     '<table class="files"><tr><th>project</th><th>mode</th><th>labeled</th><th>created</th><th></th></tr>';
   for (const p of created) {
-    const n = Object.keys(loadLabels(p.name)).length;
+    const n = Object.values(loadLabels(p.name)).filter(entry => entry?.rev && entry.label).length;
     const d = new Date(p.created || 0).toLocaleDateString();
     const relabel = !!p.pre500;
     html += `<tr>
@@ -426,7 +434,9 @@ function groupInlineTasks(proj) {
   proj.tasks = [...groups.entries()].sort((a, b) => (+a[0]) - (+b[0])).map(([k, rows], idx) => {
     const byId = new Map(rows.map(r => [col(proj, 'node_id', r), r]));
     const opRow = rows.find(r => col(proj, 'role', r) === 'op') || rows[0];
-    const tRow = rows.find(r => col(proj, 'is_target', r) === '1' || col(proj, 'role', r) === 'target');
+    const tRow = rows.find(r => col(proj, 'role', r) === 'target')
+      || rows.find(r => col(proj, 'is_target', r) === '1' && col(proj, 'role', r) !== 'op')
+      || rows.find(r => col(proj, 'is_target', r) === '1');
     return {
       i: +k || idx + 1, rows, byId,
       title: '',
@@ -468,7 +478,7 @@ function attachChunkRows(proj, chunkNo) {
     for (const r of t.rawRows) {                    // seed any pre-existing CSV labels (from full data)
       const lab = col(proj, 'label', r);
       const id = col(proj, 'node_id', r);
-      if (lab && !state.labels[id]) state.labels[id] = { label: lab, taskId: t.i, row: r };
+      if (state.project === proj && lab && !state.labels[id]) state.labels[id] = { label: lab, taskId: t.i, row: r };
     }
   }
   return true;
@@ -479,6 +489,7 @@ async function ensureTaskRows(task) {
   if (proj.dataDir && !task.rawRows) {
     if (!attachChunkRows(proj, task.chunk)) {
       await injectScript(`data_annotated/${proj.dataDir}/c${String(task.chunk).padStart(2, '0')}.js`);
+      if (state.project !== proj) return;
       attachChunkRows(proj, task.chunk);
     }
   }
@@ -541,6 +552,12 @@ async function startProject(proj, mode, template) {
 function backHome() {
   saveLabels(true);
   ++renderGen;
+  state.project = null;
+  state.labels = {};
+  state.pointed = '';
+  state.busy = false;
+  clearTimeout(labelSaveTimer);
+  $$('.overlay').forEach(overlay => { if (overlay.id !== 'auth-gate') overlay.hidden = true; });
   $('#workspace').hidden = true;
   $('#statusbar').hidden = true;
   $('#home').hidden = false;
@@ -559,7 +576,8 @@ $('#file-input').addEventListener('change', async e => {
   e.target.value = '';
   if (!file) return;
   const text = await file.text();
-  const rows = parseCSV(text);
+  let rows;
+  try { rows = parseCSV(text); } catch (error) { reportError(error); return; }
   if (rows.length < 2) { toast('CSV has no data rows'); return; }
   const name = file.name.replace(/\.csv$/i, '');
   const list = loadProjectList();
@@ -567,6 +585,12 @@ $('#file-input').addEventListener('change', async e => {
     toast('A project with that name already exists'); return;
   }
   const payload = { columns: rows[0], rows: rows.slice(1) };
+  if (payload.columns.some(name => !name) || new Set(payload.columns).size !== payload.columns.length) {
+    toast('CSV column names must be non-empty and unique.', 5000); return;
+  }
+  if (payload.rows.some(row => row.length !== payload.columns.length)) {
+    toast('CSV rows must have the same number of fields as the header.', 5000); return;
+  }
   const required = ['task_index', 'node_id', 'parent_id', 'role', 'text'];
   const missing = required.filter(column => !payload.columns.includes(column));
   if (missing.length) { toast('CSV is missing columns: ' + missing.join(', '), 5000); return; }
@@ -825,7 +849,8 @@ function setLabel(nodeId, taskId, label) {
   if (label) {
     state.labels[nodeId] = { label, taskId, row: row ? row.slice() : null, rev: true };
   } else {
-    delete state.labels[nodeId];
+    // Persist the explicit clear so source seeding and cloud pulls cannot undo it.
+    state.labels[nodeId] = { label: '', taskId, row: row ? row.slice() : null, rev: false };
   }
   const ctl = $(`.labelctl[data-node="${CSS.escape(nodeId)}"]`);
   if (ctl) {
@@ -854,7 +879,7 @@ function unlabeledCount() {
   if (!task.rawRows) return 0;
   let n = 0;
   for (const r of state.viewById?.values() || []) {
-    if (!state.labels[col(proj, 'node_id', r)]) n++;
+    if (!state.labels[col(proj, 'node_id', r)]?.label) n++;
   }
   return n;
 }
@@ -933,7 +958,7 @@ function pointJump() {
     return;
   }
   if (!task.rawRows) return;
-  const next = [...(state.viewById?.values() || [])].find(r => !state.labels[col(proj, 'node_id', r)]);
+  const next = [...(state.viewById?.values() || [])].find(r => !state.labels[col(proj, 'node_id', r)]?.label);
   if (!next) { updatePointUI(); return; }
   jumpToNode(col(proj, 'node_id', next));
 }
@@ -960,7 +985,7 @@ $('#point-btn').onclick = () => {
   if (state.template === 'relabel' && state.pointed) {
     const t = state.project.tasks[state.taskIdx];
     const group = relabelGroupOf(t);
-    if (group.some(g => g.target === state.pointed) && state.labels[state.pointed]) {
+    if (group.some(g => g.target === state.pointed) && state.labels[state.pointed]?.label) {
       markReviewed(state.pointed);
       toast('Label accepted ✓');
     }
@@ -1115,7 +1140,6 @@ document.addEventListener('keydown', e => {
 });
 
 /* ============================ boot ============================ */
-renderHome();
 async function restoreRoute() {
   const legacy = location.hash.match(/^#t(\d+)$/);
   const route = new URLSearchParams(location.hash.slice(1));
@@ -1129,4 +1153,15 @@ async function restoreRoute() {
   const idx = state.project.tasks.findIndex(task => task.i === taskId);
   if (idx >= 0) { state.taskIdx = idx; await renderTask(); }
 }
-restoreRoute().catch(error => { reportError(error); backHome(); });
+let routedAccount;
+function bootAccount() {
+  const auth = window.AuthGate;
+  if (auth?.isConfigured() && !auth.isSignedIn()) { routedAccount = undefined; return; }
+  const account = auth?.user()?.id || 'local';
+  if (routedAccount === account) return;
+  routedAccount = account;
+  renderHome();
+  restoreRoute().catch(error => { reportError(error); backHome(); });
+}
+window.AuthGate?.onAuth(bootAccount);
+(window.AuthGate?.whenReady() || Promise.resolve()).then(bootAccount);

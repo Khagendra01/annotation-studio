@@ -29,13 +29,15 @@ Without configuration the annotator runs exactly as before (local only, no login
    ```
    → writes `annotator/config.js` (gitignored, like `.env`). Placeholder values keep local mode.
 3. **Create the tables and row-level security** — run `supabase/migrations/20261016120000_annotator_auth.sql` in the SQL editor (or `supabase db push` with the CLI).
-4. **Add annotators**: Dashboard → Authentication → Users → *Add user* (set user metadata `{"access_code": "SMCADL"}` so the account-creation trigger accepts it), or let people self-register — the sign-in gate's **Create account** flow asks for the shared access code **SMCADL** and `SUPABASE_ALLOW_SIGNUP=true` must be on. The code is checked in the browser for instant feedback and again on `auth.users` by a trigger, so it is not enough to read it out of the page source.
+4. **Add annotators**: Dashboard → Authentication → Users → *Add user* (set user metadata `{"access_code": "SMCADL"}` so the account-creation trigger accepts it), or let people self-register — the sign-in gate's **Create account** flow asks for the shared access code **SMCADL** and `SUPABASE_ALLOW_SIGNUP=true` must be on. This shared code is visible in public source and is not a private invitation mechanism. For invite-only production use, disable new user sign-ups in Supabase Auth itself and provision accounts through an administrator; hiding the client sign-up button alone does not enforce this.
 5. **Reload `annotator.html`** — the gate blocks the workspace until the account signs in. Labels then sync continuously: projects, per-node annotations, and reading position, all scoped to the signed-in user by RLS. The status bar shows `cloud: synced hh:mm:ss`; click it to force a sync.
 
 Notes:
 
 - `localStorage` remains the source of truth the UI reads, so a failed or offline sync never blocks annotation — the status bar shows `cloud: sync error` and retries on the next change.
 - Signing in first pulls everything for the account, then pushes local-only work. On a conflict the local edit wins; on a fresh browser the server copy is pulled in.
+- Browser workspaces are isolated by account. Existing browser work is reserved for the first account that signs in after the upgrade, without copying large imported files; subsequent accounts use separate stores. Signing out flushes local edits and closes the workspace. Responses from an earlier account cannot modify the next account's store.
+- Clearing a label persists an explicit empty override, so source labels and subsequent cloud pulls cannot restore the cleared label. Project deletions are recorded explicitly before syncing; absent local projects alone never authorize deleting remote projects.
 - **Imported CSV rows stay local** (`annotator.data.v1.*` is not synced), so an imported project only opens on the browser it was imported into. Skeleton projects sync everywhere.
 - Reading position resolves to the furthest progress across devices.
 - `file://` works (Supabase sends permissive CORS), but a local server avoids browser quirks: `python3 -m http.server`.
@@ -62,6 +64,8 @@ Projects created with **Relabel 500 targets** exempt every target and its reply 
 
 Filters define the reading scope. Review can show labeled rows or all loaded source rows. The export dialog independently selects CSV or JSON, labeled rows or the full project, and one of four structures: original project columns, thread rows with parent IDs, the original relabeled 500 format, or a relabeled 500 format with a structured root-to-target tree path. CSV tree paths are JSON arrays stored in one cell; JSON exports keep them as arrays. Exports are not silently reduced to the reading scope.
 
+**Labeled only means annotations explicitly saved or accepted by the annotator.** Original/reference labels do not qualify a row for this scope. Labeled exports contain each saved node once, even when the source contains repeated tasks for its thread. Target structures include only saved target nodes; use original/thread rows for saved annotations on other nodes. Full thread-row exports deduplicate node IDs, while full original-column exports preserve the source's per-task rows. Full exports merge saved changes, including explicit clears, over source labels. Labeled and full target exports have distinct filenames. Tree exports report missing parents or cycles instead of silently returning a truncated path.
+
 ## Code organization and future database integration
 
 - `annotator.html`: semantic page structure and dialogs.
@@ -83,7 +87,7 @@ Repository writes stay synchronous and local; `RemoteSync` mirrors them asynchro
 Run the scope regressions without dependencies:
 
 ```sh
-node --test tests/annotator-scope.test.cjs
+node --test tests/annotator-scope.test.cjs tests/annotator-sync.test.cjs
 ```
 
 With runtime data built and Playwright available, run browser checks:
@@ -97,3 +101,7 @@ node tests/annotator-auth.cjs
 ```
 
 Browser checks use an isolated browser profile, exercise real data and a small imported fixture, and save desktop/mobile screenshots under `/tmp/annotator-*.png`. The auth checks cover local mode, the blocking gate when Supabase is configured, and the sign-in error path; they restore `annotator/config.js` afterwards and skip the last case when there is no network.
+
+Export checks parse the downloaded files for all 16 format/scope/structure combinations, including repeated thread tasks, source labels, multiline Unicode text, explicit clears, imported targets, and the real 500-target dataset. Auth checks also use a simulated successful sign-in to verify account switching and immediate sign-out persistence. Sync regressions use an in-memory Supabase substitute to verify account separation, delayed responses, deletions, and offline retries. These tests do not establish that a live Supabase deployment has the intended RLS policies or enrollment configuration; verify those in the deployed project before approving a production rollout. CSV exports preserve source text, so untrusted cell text should be imported as text in spreadsheet applications rather than evaluated as formulas.
+
+Pages deployment runs JavaScript syntax checks and the scope/sync regressions before publishing. The generated entry page uses content hashes in script and stylesheet URLs so browsers fetch the matching assets after an update. Browser/auth suites remain explicit pre-release checks because they need Chromium and a built dataset.

@@ -6,7 +6,9 @@ function collectViewRows() {
   const rows = [];
   if (scope === 'labeled') {
     for (const [id, entry] of Object.entries(state.labels)) {
-      const r = entry.row;
+      if (!entry?.rev || !entry.label) continue;
+      const task = proj.tasks.find(task => task.i === entry.taskId);
+      const r = entry.row || task?.byId?.get(id) || task?.rawRows?.find(row => col(proj, 'node_id', row) === id);
       if (!r) continue;
       rows.push(r);
     }
@@ -28,7 +30,7 @@ function applyViewFilters() {
   let rows = collectViewRows();
   rows = rows.filter(r => {
     const id = col(proj, 'node_id', r);
-    const l = state.labels[id]?.label || col(proj, 'label', r) || '';
+    const l = state.labels[id]?.label ?? col(proj, 'label', r) ?? '';
     const ro = col(proj, 'role', r);
     const ti = col(proj, 'task_index', r);
     const tx = col(proj, 'text', r);
@@ -45,7 +47,7 @@ function applyViewFilters() {
     id: col(proj, 'node_id', r),
     parent: col(proj, 'parent_id', r),
     role: col(proj, 'role', r),
-    label: state.labels[col(proj, 'node_id', r)]?.label || col(proj, 'label', r) || '',
+    label: state.labels[col(proj, 'node_id', r)]?.label ?? col(proj, 'label', r) ?? '',
     created: col(proj, 'created_utc', r),
     text: col(proj, 'text', r),
   })[sortKey];
@@ -63,7 +65,7 @@ function renderViewTable() {
   const shown = rows.slice(0, limit);
   $('#v-body').innerHTML = shown.map(r => {
     const id = col(proj, 'node_id', r);
-    const label = state.labels[id]?.label || col(proj, 'label', r) || '';
+    const label = state.labels[id]?.label ?? col(proj, 'label', r) ?? '';
     return `<tr>
       <td>${esc(col(proj, 'task_index', r))}</td>
       <td><code>${esc(id)}</code></td>
@@ -82,6 +84,15 @@ function renderViewTable() {
 
 async function openViewModal() {
   if (!state.project) return;
+  const project = state.project;
+  try {
+    for (const entry of Object.values(state.labels)) {
+      if (!entry?.rev || !entry.label || entry.row) continue;
+      const task = project.tasks.find(task => task.i === entry.taskId);
+      if (task) await ensureTaskRows(task);
+      if (state.project !== project) return;
+    }
+  } catch (error) { reportError(error); return; }
   const sel = $('#v-label');
   sel.innerHTML = '<option value="">(any)</option>' +
     HUMAID.map(([v]) => `<option value="${v}">${v}</option>`).join('');
